@@ -26,17 +26,22 @@ namespace cormo {
 
 using std::string;
 
-Backend *Backend::CreateBackend(const string &type,
-                                const string &conn_info) {
-  Backend* backend = NULL;
+Error Backend::CreateBackend(Types type,
+                             const string &conn_info,
+                             Backend **backend) {
+  *backend = NULL;
 
-  if (type == "postgresql") {
-    backend = new PostgreSQL(conn_info);
-  } else {
-    throw Error("No backend '" + type + "' available.");
+  switch (type) {
+    case kPostgresql: {
+      *backend = new PostgreSQL(conn_info);
+      break;
+    }
+    default: {
+      return Error("No backend available.");
+    }
   }
 
-  return backend;
+  return Success();
 }
 
 }  // namespace cormo

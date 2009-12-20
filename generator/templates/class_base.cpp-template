@@ -91,14 +91,15 @@ void $model.name_base::FillFieldsAndValues(StringList *fields, Record *record) {
 }
 
 
-void $model.name_base::Save() {
+Error $model.name_base::Save() {
   assert(database_ != NULL);
+  Error error;
 
   bool new_transaction = !database_->in_transaction();
   if (new_transaction) {
-    database_->Begin();
-    if (database_->got_error()) {
-      return;
+    error = database_->Begin();
+    if (error.occurred()) {
+      return error;
     }
   }
 
@@ -106,7 +107,10 @@ void $model.name_base::Save() {
   // save foreign key objects first
   #for $field in $model.__foreign_keys__
   if (!${field.name}_.is_null()) {
-    ${field.name}_.get().Save();
+    error = ${field.name}_.get().Save();
+    if (error.occurred()) {
+      return error;
+    }
     ${field.field}_ = ${field.name}_.get().id();
   }
   #end for
@@ -119,23 +123,21 @@ void $model.name_base::Save() {
     string query = "SELECT nextval('";
     query += table_name_;
     query += "_id_seq'::regclass)";
-    Records records = database_->Query(query);
-    if (database_->got_error()) {
-      if (new_transaction) {
-        database_->Rollback();
-      }
-      return;
+    Records records;
+    error = database_->Query(query, &records);
+    if (error.occurred()) {
+      return error;
     }
 
     id_ = ConvertTo< Value<value_types::Integer> >(records[0][0]);
 
     FillFieldsAndValues(&fields, &record);
-    database_->Insert(table_name_, fields, record);
-    if (database_->got_error()) {
+    error = database_->Insert(table_name_, fields, record);
+    if (error.occurred()) {
       if (new_transaction) {
         database_->Rollback();
       }
-      return;
+      return error;
     }
     is_initialized_ = true;
   } else {
@@ -152,55 +154,60 @@ void $model.name_base::Save() {
     query.Add(${field.name.capitalize}, ConvertTo<RecordValue>(${field.field}_));
 #end for
 
-    database_->Query(query.ToString());
-    if (database_->got_error()) {
+    error = database_->Query(query.ToString());
+    if (error.occurred()) {
       if (new_transaction) {
         database_->Rollback();
       }
-      return;
+      return error;
     }
   }
 
   if (new_transaction) {
-    database_->Commit();
-    if (database_->got_error()) {
-      return;
+    error = database_->Commit();
+    if (error.occurred()) {
+      return error;
     }
   }
+
+  return Success();
 }
 
 
-void $model.name_base::Delete() {
+Error $model.name_base::Delete() {
   assert(database_ != NULL);
+  Error error;
 
   if (id_.is_null()) {
-    return;
+    return Success();
   }
 
   bool new_transaction = !database_->in_transaction();
   if (new_transaction) {
-    database_->Begin();
-    if (database_->got_error()) {
-      return;
+    error = database_->Begin();
+    if (error.occurred()) {
+      return error;
     }
   }
 
-  database_->Delete(table_name_, Id == id_);
-  if (database_->got_error()) {
-    if (new_transaction) {
+  error = database_->Delete(table_name_, Id == id_);
+  if (error.occurred()) {
+     if (new_transaction) {
       database_->Rollback();
     }
-    return;
+    return error;
   }
 
   id_.reset();
 
   if (new_transaction) {
-    database_->Commit();
-    if (database_->got_error()) {
-      return;
+    error = database_->Commit();
+    if (error.occurred()) {
+      return error;
     }
   }
+
+  return Success();
 }
 
 #if $own_namespace

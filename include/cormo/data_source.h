@@ -94,20 +94,40 @@ class DataSource {
     return *this;
   }
 
-  Cursor<T> cursor() {
-    return database_.cursor<T>(query_.ToString());
+  Error CreateCursor(Cursor<T> **cursor) {
+    return database_.CreateCursor(query_.ToString(), cursor);
   }
 
-  T one() {
-    T obj = *cursor();
-    if (!obj.is_initialized()) {
-      throw typename T::DoesNotExist();
+  Error GetOne(T *obj) {
+    Cursor<T> *cursor;
+    Error error = CreateCursor(&cursor);
+    if (error.occurred()) {
+      return error;
     }
-    return obj;
+
+    error = cursor->Get(obj);
+    if (error.occurred()) {
+      return error;
+    }
+
+    if (!obj->is_initialized()) {
+      return T::DoesNotExist();
+    }
+
+    delete cursor;
+
+    return Success();
   }
 
-  std::vector<T> all() {
-    return cursor().dump();
+  Error GetAll(std::vector<T> *result) {
+    Cursor<T> *cursor;
+    Error error = CreateCursor(&cursor);
+    if (error.occurred()) {
+      return error;
+    }
+    error = cursor->Dump(result);
+    delete cursor;
+    return error;
   }
 
  private:

@@ -26,13 +26,33 @@ namespace cormo {
 
 class Error : public std::exception {
  public:
-  explicit Error(const std::string &message) throw() : message_(message) {}
+  static const unsigned int ID = 0xffffffff;
+  static const unsigned int UNINITIALIZED_ID = 0xfffffffe;
+  static const unsigned int SUCCESS_ID = 0x00000000;
+
+  Error() : id_(UNINITIALIZED_ID), message_("") {}
+  explicit Error(const std::string &message) : id_(ID), message_(message) {}
+  Error(unsigned int id, const std::string &message) : id_(id),
+                                                       message_(message) {}
   ~Error() throw() {}
 
-  virtual const char *what() const throw() { return message_.c_str(); }
+  const std::string &message() const { return message_; }
+  unsigned int id() const { return id_; }
+  bool occurred() const { return id() != SUCCESS_ID; }
+
+  virtual const char* what() const throw() {
+    return message_.c_str();
+  }
 
  private:
+  unsigned int id_;
   std::string message_;
+};
+
+class Success : public Error {
+ public:
+  static const unsigned int ID = Error::SUCCESS_ID;
+  Success() : Error(ID, "") {}
 };
 
 }  // namespace cormo
