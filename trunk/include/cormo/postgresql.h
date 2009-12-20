@@ -49,15 +49,18 @@ class PostgreSQL : public Backend {
 
   class Cursor : public Backend::Cursor {
    public:
-    Cursor(PostgreSQL *postgresql, const std::string &query);
+    explicit Cursor(PostgreSQL *postgresql);
     virtual ~Cursor() {
-      delete postgresql_.Execute("CLOSE " + name_ + ";");
+      Error error = postgresql_.Execute("CLOSE " + name_ + ";");
+      assert(!error.occurred());
+
       if (new_transaction_) {
         postgresql_.Commit();
       }
     }
 
-    virtual Record FetchOne();
+    virtual Error Init(const std::string &query);
+    virtual Error FetchOne(Record *record);
 
   private:
     static size_t cache_size_;
@@ -84,15 +87,17 @@ class PostgreSQL : public Backend {
     }
   }
 
-  virtual void Connect();
+  virtual Error Connect();
 
-  virtual void Begin();
-  virtual void Commit();
-  virtual void Rollback();
+  virtual Error Begin();
+  virtual Error Commit();
+  virtual Error Rollback();
   virtual bool in_transaction() const { return transaction_; }
 
-  virtual Backend::Result *Execute(const std::string &query);
-  virtual Backend::Cursor *CreateCursor(const std::string &query);
+  virtual Error Execute(const std::string &query, Backend::Result **result);
+  virtual Error Execute(const std::string &query);
+  virtual Error CreateCursor(const std::string &query,
+                             Backend::Cursor **cursor);
 
  private:
   PGconn *connection_;

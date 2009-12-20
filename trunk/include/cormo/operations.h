@@ -48,12 +48,17 @@ template <class T>
 T Get(Database *database, const Expression &expression) {
   DataSource<T> data_source(database);
   T::FillDataSource(&data_source);
-  std::vector<T> objs = data_source.Filter(expression).Limit(2).all();
+  std::vector<T> objs;
+  Error error = data_source.Filter(expression).Limit(2).GetAll(&objs);
+  if (error.occurred()) {
+    throw error;
+  }
   if (objs.size() == 2) {
     throw typename T::NotUnique();
   } else if (objs.size() == 0) {
     throw typename T::DoesNotExist();
   }
+
   return objs[0];
 }
 

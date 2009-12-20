@@ -99,11 +99,362 @@ class Value {
     return *this;
   }
 
+  // !x
+  T operator!() const {
+    return !get();
+  }
+
+  // +x
+  T operator+() const {
+    return +get();
+  }
+
+  // -x
+  T operator-() const {
+    return -get();
+  }
+
+  // ~x
+  T operator~() const {
+    return ~get();
+  }
+
+  // ++x
+  Value &operator++() {
+    assert(!is_null());
+    ++(*value_);
+    return *this;
+  }
+
+  // x++
+  Value &operator++(int dummy_for_postfix) {
+    assert(!is_null());
+    ++(*value_);
+    return *this;
+  }
+
+  // --x
+  Value &operator--() {
+    assert(!is_null());
+    --(*value_);
+    return *this;
+  }
+
+  // x--
+  Value &operator--(int dummy_for_postfix) {
+    assert(!is_null());
+    --(*value_);
+    return *this;
+  }
+
+  // x+=
+  template <class S>
+  Value &operator+=(const S &value) {
+    assert(!is_null());
+    *value_ = *value_ + value;
+    return *this;
+  }
+
+  // x-=
+  template <class S>
+  Value &operator-=(const S &value) {
+    assert(!is_null());
+    *value_ = *value_ - value;
+    return *this;
+  }
+
+  // x*=
+  template <class S>
+  Value &operator*=(const S &value) {
+    assert(!is_null());
+    *value_ = *value_ * value;
+    return *this;
+  }
+
+  // x/=
+  template <class S>
+  Value &operator/=(const S &value) {
+    assert(!is_null());
+    *value_ = *value_ / value;
+    return *this;
+  }
+
+  // x%=
+  template <class S>
+  Value &operator%=(const S &value) {
+    assert(!is_null());
+    *value_ = *value_ % value;
+    return *this;
+  }
+
+  // x<<=
+  template <class S>
+  Value &operator<<=(const S &value) {  // NOLINT
+    assert(!is_null());
+    *value_ = *value_ << value;
+    return *this;
+  }
+
+  // x>>=
+  template <class S>
+  Value &operator>>=(const S &value) {  // NOLINT
+    assert(!is_null());
+    *value_ = *value_ >> value;
+    return *this;
+  }
+
+  // x&=
+  template <class S>
+  Value &operator&=(const S &value) {
+    assert(!is_null());
+    *value_ = *value_ & value;
+    return *this;
+  }
+
+  // x|=
+  template <class S>
+  Value &operator|=(const S &value) {
+    assert(!is_null());
+    *value_ = *value_ | value;
+    return *this;
+  }
+
+  // x^=
+  template <class S>
+  Value &operator^=(const S &value) {
+    assert(!is_null());
+    *value_ = *value_ ^ value;
+    return *this;
+  }
+
  private:
   T *value_;
 
 };
 
+// a + b
+template <class S, class T>
+S operator+(const Value<S> &a, const Value<T> &b) {
+  return a.get() + b.get();
+}
+template <class S, class T>
+S operator+(const Value<S> &a, const T &b) {
+  return a.get() + b;
+}
+template <class S, class T>
+S operator+(const S &a, const Value<T> &b) {
+  return a + b.get();
+}
+
+// a - b
+template <class S, class T>
+S operator-(const Value<S> &a, const Value<T> &b) {
+  return a.get() - b.get();
+}
+template <class S, class T>
+S operator-(const Value<S> &a, const T &b) {
+  return a.get() - b;
+}
+template <class S, class T>
+S operator-(const S &a, const Value<T> &b) {
+  return a - b.get();
+}
+
+// a * b
+template <class S, class T>
+S operator*(const Value<S> &a, const Value<T> &b) {
+  return a.get() * b.get();
+}
+template <class S, class T>
+S operator*(const Value<S> &a, const T &b) {
+  return a.get() * b;
+}
+template <class S, class T>
+S operator*(const S &a, const Value<T> &b) {
+  return a * b.get();
+}
+
+// a / b
+template <class S, class T>
+S operator/(const Value<S> &a, const Value<T> &b) {
+  return a.get() / b.get();
+}
+template <class S, class T>
+S operator/(const Value<S> &a, const T &b) {
+  return a.get() / b;
+}
+template <class S, class T>
+S operator/(const S &a, const Value<T> &b) {
+  return a / b.get();
+}
+
+// a % b
+template <class S, class T>
+S operator%(const Value<S> &a, const Value<T> &b) {
+  return a.get() % b.get();
+}
+template <class S, class T>
+S operator%(const Value<S> &a, const T &b) {
+  return a.get() % b;
+}
+template <class S, class T>
+S operator%(const S &a, const Value<T> &b) {
+  return a % b.get();
+}
+
+// a << b
+template <class S, class T>
+S operator<<(const Value<S> &a, const Value<T> &b) {
+  return a.get() << b.get();
+}
+template <class S, class T>
+S operator<<(const Value<S> &a, const T &b) {
+  return a.get() << b;
+}
+template <class S, class T>
+S operator<<(const S &a, const Value<T> &b) {
+  return a << b.get();
+}
+
+// a >> b
+template <class S, class T>
+S operator>>(const Value<S> &a, const Value<T> &b) {
+  return a.get() >> b.get();
+}
+template <class S, class T>
+S operator>>(const Value<S> &a, const T &b) {
+  return a.get() >> b;
+}
+template <class S, class T>
+S operator>>(const S &a, const Value<T> &b) {
+  return a >> b.get();
+}
+
+// a & b
+template <class S, class T>
+S operator&(const Value<S> &a, const Value<T> &b) {
+  return a.get() & b.get();
+}
+template <class S, class T>
+S operator&(const Value<S> &a, const T &b) {
+  return a.get() & b;
+}
+template <class S, class T>
+S operator&(const S &a, const Value<T> &b) {
+  return a & b.get();
+}
+
+// a | b
+template <class S, class T>
+S operator|(const Value<S> &a, const Value<T> &b) {
+  return a.get() | b.get();
+}
+template <class S, class T>
+S operator|(const Value<S> &a, const T &b) {
+  return a.get() | b;
+}
+template <class S, class T>
+S operator|(const S &a, const Value<T> &b) {
+  return a | b.get();
+}
+
+// a ^ b
+template <class S, class T>
+S operator^(const Value<S> &a, const Value<T> &b) {
+  return a.get() ^ b.get();
+}
+template <class S, class T>
+S operator^(const Value<S> &a, const T &b) {
+  return a.get() ^ b;
+}
+template <class S, class T>
+S operator^(const S &a, const Value<T> &b) {
+  return a ^ b.get();
+}
+
+// a < b
+template <class S, class T>
+bool operator<(const Value<S> &a, const Value<T> &b) {
+  return a.get() < b.get();
+}
+template <class S, class T>
+bool operator<(const Value<S> &a, const T &b) {
+  return a.get() < b;
+}
+/*template <class S, class T>
+bool operator<(const S &a, const Value<T> &b) {
+  return a < b.get();
+}*/
+
+// a <= b
+template <class S, class T>
+bool operator<=(const Value<S> &a, const Value<T> &b) {
+  return a.get() <= b.get();
+}
+template <class S, class T>
+bool operator<=(const Value<S> &a, const T &b) {
+  return a.get() <= b;
+}
+
+// a > b
+template <class S, class T>
+bool operator>(const Value<S> &a, const Value<T> &b) {
+  return a.get() > b.get();
+}
+template <class S, class T>
+bool operator>(const Value<S> &a, const T &b) {
+  return a.get() > b;
+}
+
+// a >= b
+template <class S, class T>
+bool operator>=(const Value<S> &a, const Value<T> &b) {
+  return a.get() >= b.get();
+}
+template <class S, class T>
+bool operator>=(const Value<S> &a, const T &b) {
+  return a.get() >= b;
+}
+
+// a == b
+template <class S, class T>
+bool operator==(const Value<S> &a, const Value<T> &b) {
+  return a.get() == b.get();
+}
+template <class S, class T>
+bool operator==(const Value<S> &a, const T &b) {
+  return a.get() == b;
+}
+
+// a != b
+template <class S, class T>
+bool operator!=(const Value<S> &a, const Value<T> &b) {
+  return a.get() != b.get();
+}
+template <class S, class T>
+bool operator!=(const Value<S> &a, const T &b) {
+  return a.get() != b;
+}
+
+// a && b
+template <class S, class T>
+bool operator&&(const Value<S> &a, const Value<T> &b) {
+  return a.get() && b.get();
+}
+template <class S, class T>
+bool operator&&(const Value<S> &a, const T &b) {
+  return a.get() && b;
+}
+
+// a || b
+template <class S, class T>
+bool operator||(const Value<S> &a, const Value<T> &b) {
+  return a.get() || b.get();
+}
+template <class S, class T>
+bool operator||(const Value<S> &a, const T &b) {
+  return a.get() || b;
+}
 
 template <class T>
 T ConvertTo(int value);

@@ -65,10 +65,11 @@ class $model.name_base : public Model {
   const Value<value_types::$field.type> &${field.name}() const {
     return ${field.name}_;
   }
-  void set_${field.name}(const Value<value_types::$field.type> &value) {
-    ${field.name}_ = value;
+  Value<value_types::$field.type> &${field.name}() {
+    return ${field.name}_;
   }
-  void set_${field.name}(const value_types::$field.type &value) {
+  template <class T>
+  void set_${field.name}(const T &value) {
     ${field.name}_ = value;
   }
 
@@ -94,8 +95,8 @@ class $model.name_base : public Model {
 #end for
 
   virtual void Init(const Record &record);
-  virtual void Save();
-  virtual void Delete();
+  virtual Error Save();
+  virtual Error Delete();
 
  protected:
   virtual void FillFieldsAndValues(StringList *fields, Record *record);

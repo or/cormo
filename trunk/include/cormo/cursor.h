@@ -30,50 +30,62 @@ template <class T>
 class Cursor {
  public:
   Cursor(Database *database, Backend::Cursor *cursor)
-     : database_(*database), cursor_(cursor), done_(false), got_row_(false) {
-    operator++();
+     : database_(*database), cursor_(cursor), done_(false) {
+    Next();
   }
-  ~Cursor() { delete cursor_; }
+  ~Cursor() {
+    delete cursor_;
+  }
 
-  Cursor<T> &operator++() {
+  Error Next() {
     if (done_) {
-      return *this;
+      return Success();
     }
 
-    current_row_ = cursor_->FetchOne();
+    Error error = cursor_->FetchOne(&current_row_);
+    if (error.occurred()) {
+      return error;
+    }
     if (current_row_.size() == 0) {
       done_ = true;
-      got_row_ = false;
-    } else {
-      got_row_ = true;
     }
 
-    return *this;
+    return Success();
   }
 
-  T operator*() {
-    T obj(&database_);
-    if (!got_row_) {
-      return obj;
+  Error Get(T *obj) {
+    if (current_row_.size() == 0) {
+      return Success();
     }
 
-    obj.Init(current_row_);
-    return obj;
+    T tmp_obj(&database_);
+    tmp_obj.Init(current_row_);
+    *obj = tmp_obj;
+
+    return Success();
   }
 
-  std::vector<T> dump() {
-    std::vector<T> result;
-    for ( ; !done_; operator++()) {
-      result.push_back(operator*());
+  Error Dump(std::vector<T> *result) {
+    result->clear();
+    while (!done_) {
+      T obj(&database_);
+      Error error = Get(&obj);
+      if (error.occurred()) {
+        return error;
+      }
+      result->push_back(obj);
+      error = Next();
+      if (error.occurred()) {
+        return error;
+      }
     }
-    return result;
+    return Success();
   }
 
  private:
   Database &database_;
   Backend::Cursor *cursor_;
   bool done_;
-  bool got_row_;
   Record current_row_;
 };
 

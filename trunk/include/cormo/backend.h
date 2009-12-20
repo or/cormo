@@ -31,11 +31,7 @@ namespace cormo {
 
 class Backend {
  public:
-  class Cursor {
-  public:
-    virtual ~Cursor() {}
-    virtual Record FetchOne() = 0;
-  };
+  enum Types { kPostgresql = 1 };
 
   class Result {
   public:
@@ -46,34 +42,32 @@ class Backend {
     virtual Records records() const = 0;
   };
 
-  static Backend *CreateBackend(const std::string &type,
-                                const std::string &conn_info);
+  class Cursor {
+  public:
+    virtual ~Cursor() {}
+    virtual Error Init(const std::string &query) = 0;
+    virtual Error FetchOne(Record *record) = 0;
+  };
+
+  static Error CreateBackend(Types type,
+                             const std::string &conn_info,
+                             Backend **backend);
 
   virtual ~Backend() {}
 
-  virtual void Connect() {}
+  virtual Error Connect() { return Success(); }
 
-  virtual void Begin() {}
-  virtual void Commit() {}
-  virtual void Rollback() {}
+  virtual Error Begin() { return Success(); }
+  virtual Error Commit() { return Success(); }
+  virtual Error Rollback() { return Success(); }
   virtual bool in_transaction() const { return false; }
 
-  virtual bool got_error() const { return last_error_ != ""; }
-  virtual std::string last_error() {
-    std::string tmp = last_error_;
-    last_error_ = "";
-    return tmp;
-  }
-
-  virtual Result *Execute(const std::string &query) = 0;
-  virtual Cursor *CreateCursor(const std::string &query) = 0;
+  virtual Error Execute(const std::string &query, Result **result) = 0;
+  virtual Error Execute(const std::string &query) = 0;
+  virtual Error CreateCursor(const std::string &query, Cursor **cursor) = 0;
 
  protected:
   Backend() {}
-
-  void set_last_error(const std::string &error) { last_error_ = error; }
-
-  std::string last_error_;
 
  private:
 

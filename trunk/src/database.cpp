@@ -20,7 +20,6 @@
 
 #include <stdio.h>
 
-#include <auto_ptr.h>
 #include <string>
 
 #include "cormo/expression.h"
@@ -30,70 +29,59 @@
 
 namespace cormo {
 
-using std::auto_ptr;
 using std::string;
 
-void Database::Connect() {
+Error Database::Connect() {
   if (debug_) {
     fprintf(stderr, "connect;\n");
   }
   Reset();
-  backend_ = Backend::CreateBackend(backend_type_, conn_info_);
-  if (backend_ == NULL) {
-    set_last_error("Backend creation failed.");
-    return;
+  Error error = Backend::CreateBackend(backend_type_, conn_info_, &backend_);
+  if (error.occurred()) {
+    return error;
   }
-  backend_->Connect();
-  if (backend_->got_error()) {
-    set_last_error(backend_->last_error());
-    return;
+
+  error = backend_->Connect();
+  if (error.occurred()) {
+    return error;
   }
+
+  return Success();
 }
 
 
 void Database::Reset() {
   if (backend_) {
     delete backend_;
+    backend_ = NULL;
   }
 }
 
 
-void Database::Begin() {
+Error Database::Begin() {
   if (debug_) {
     fprintf(stderr, "begin;\n");
   }
   assert(backend_ != NULL);
-  backend_->Begin();
-  if (backend_->got_error()) {
-    set_last_error(backend_->last_error());
-    return;
-  }
+  return backend_->Begin();
 }
 
 
-void Database::Commit() {
+Error Database::Commit() {
   if (debug_) {
     fprintf(stderr, "commit;\n");
   }
   assert(backend_ != NULL);
-  backend_->Commit();
-  if (backend_->got_error()) {
-    set_last_error(backend_->last_error());
-    return;
-  }
+  return backend_->Commit();
 }
 
 
-void Database::Rollback() {
+Error Database::Rollback() {
   if (debug_) {
     fprintf(stderr, "rollback;\n");
   }
   assert(backend_ != NULL);
-  backend_->Rollback();
-  if (backend_->got_error()) {
-    set_last_error(backend_->last_error());
-    return;
-  }
+  return backend_->Rollback();
 }
 
 
@@ -103,23 +91,36 @@ bool Database::in_transaction() const {
 }
 
 
-Records Database::Query(const string &query) {
+Error Database::Query(const string &query, Records *records) {
   if (debug_) {
     fprintf(stderr, "%s\n", query.c_str());
   }
-  auto_ptr<Backend::Result> result(backend_->Execute(query));
-  if (backend_->got_error()) {
-    set_last_error(backend_->last_error());
-    return Records();
+  Backend::Result *result;
+  Error error = backend_->Execute(query, &result);
+  if (error.occurred()) {
+    return error;
   }
 
-  return result->records();
+  if (records) {
+    // only do this if records is not NULL, otherwise we assume the records
+    // are not wanted anyway
+    *records = result->records();
+  }
+  // but free the result
+  delete result;
+
+  return Success();
 }
 
 
-void Database::Insert(const string &table,
-                      const StringList &fields,
-                      const Record &record) {
+Error Database::Query(const string &query) {
+  return Query(query, NULL);
+}
+
+
+Error Database::Insert(const string &table,
+                       const StringList &fields,
+                       const Record &record) {
   string command = "INSERT INTO ";
   command += table;
   command += " (";
@@ -134,21 +135,13 @@ void Database::Insert(const string &table,
   }
   command += ")";
 
-  Query(command);
-  if (backend_->got_error()) {
-    set_last_error(backend_->last_error());
-    return;
-  }
+  return Query(command);
 }
 
 
-void Database::Delete(const string &table,
-                      const Expression &where) {
-  Query("DELETE FROM " + table + " WHERE " + where.ToString());
-  if (backend_->got_error()) {
-    set_last_error(backend_->last_error());
-    return;
-  }
+Error Database::Delete(const string &table,
+                        const Expression &where) {
+  return Query("DELETE FROM " + table + " WHERE " + where.ToString());
 }
 
 }  // namespace cormo

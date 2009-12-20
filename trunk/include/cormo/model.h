@@ -26,17 +26,23 @@ namespace cormo {
 
 class StringList;
 class Record;
+template <class T>
+class Cursor;
 
 class Model {
+  template <class T>
+  friend class Cursor;
  public:
   explicit Model(Database *database)
       : database_(database), is_initialized_(false) {}
   Model() : database_(NULL), is_initialized_(false) {}
   virtual ~Model() {}
 
-  virtual void Save() = 0;
-  virtual void Init(const Record &record) = 0;
+  virtual Error Save() = 0;
+  virtual Error Delete() = 0;
   bool is_initialized() const { return is_initialized_; }
+
+  virtual void Init(const Record &record) = 0;
 
  protected:
   virtual void FillFieldsAndValues(StringList *fields,

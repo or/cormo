@@ -17,7 +17,7 @@
  */
 
 #include "cormo/postgresql.h"
-
+#include <stdio.h>
 #include <string>
 #include <vector>
 
@@ -61,39 +61,59 @@ Records PostgreSQL::Result::records() const {
 size_t PostgreSQL::Cursor::cache_size_ = 30;
 int PostgreSQL::Cursor::sid_ = 1;
 
-PostgreSQL::Cursor::Cursor(PostgreSQL *postgresql,
-                           const string &query)
+
+PostgreSQL::Cursor::Cursor(PostgreSQL *postgresql)
     : postgresql_(*postgresql),
       name_("cursor" + ToString(sid_++)),
       cache_pos_(0),
       new_transaction_(false) {
-  if (!postgresql_.in_transaction()) {
-    postgresql_.Begin();
-    new_transaction_ = true;
-  }
-  delete postgresql_.Execute("DECLARE \"" + name_ + "\" CURSOR FOR " + query);
+  // nothing else to do
 }
 
 
-Record PostgreSQL::Cursor::FetchOne() {
+Error PostgreSQL::Cursor::Init(const string &query) {
+  Error error;
+  if (!postgresql_.in_transaction()) {
+    error = postgresql_.Begin();
+    if (error.occurred()) {
+      return error;
+    }
+    new_transaction_ = true;
+  }
+  error = postgresql_.Execute("DECLARE \"" + name_ + "\" CURSOR FOR " + query);
+  if (error.occurred()) {
+    return error;
+  }
+
+  return Success();
+}
+
+
+Error PostgreSQL::Cursor::FetchOne(Record *record) {
   if (cache_.size() == 0 ||
       cache_pos_ >= cache_.size()) {
     cache_pos_ = 0;
-    Backend::Result *r = postgresql_.Execute("FETCH " + ToString(cache_size_) +
-                                               " FROM " + name_ + ";");
-    cache_ = r->records();
-    delete r;
+    Backend::Result *result;
+    Error error = postgresql_.Execute("FETCH " + ToString(cache_size_) +
+                                      " FROM " + name_ + ";", &result);
+    if (error.occurred()) {
+      return error;
+    }
+    cache_ = result->records();
+    delete result;
   }
 
   if (cache_pos_ >= cache_.size()) {
-    return Record();
+    *record = Record();
+  } else {
+    *record = cache_[cache_pos_++];
   }
 
-  return cache_[cache_pos_++];
+  return Success();
 }
 
 
-void PostgreSQL::Connect() {
+Error PostgreSQL::Connect() {
   StringList params(connection_info_, ";");
   string new_connection_info = "";
   for (size_t i = 0; i < params.size(); ++i) {
@@ -117,58 +137,90 @@ void PostgreSQL::Connect() {
   if (PQstatus(connection_) != CONNECTION_OK) {
     string message = "PostgreSQL connection " + connection_info_ + " failed: " +
                        string(PQerrorMessage(connection_));
-    set_last_error(message);
-    throw Error(message);
-    return;
+    return Error(message);
   }
+
+  return Success();
 }
 
 
-void PostgreSQL::Begin() {
+Error PostgreSQL::Begin() {
   if (!transaction_) {
-    delete Execute("BEGIN;");
+    Error error = Execute("BEGIN;");
+    if (error.occurred()) {
+      return error;
+    }
     transaction_ = true;
   }
+  return Success();
 }
 
 
-void PostgreSQL::Commit() {
+Error PostgreSQL::Commit() {
   if (transaction_) {
-    delete Execute("COMMIT;");
+    Error error = Execute("COMMIT;");
+    if (error.occurred()) {
+      return error;
+    }
     transaction_ = false;
   }
+  return Success();
 }
 
 
-void PostgreSQL::Rollback() {
+Error PostgreSQL::Rollback() {
   if (transaction_) {
-    delete Execute("ROLLBACK;");
+    Error error = Execute("ROLLBACK;");
+    if (error.occurred()) {
+      return error;
+    }
     transaction_ = false;
   }
+  return Success();
 }
 
 
-Backend::Result *PostgreSQL::Execute(const string &query) {
+Error PostgreSQL::Execute(const string &query, Backend::Result **result) {
   string tmp = query;
   tmp += ";";
-  PGresult *result = PQexec(connection_, tmp.c_str());
+  PGresult *raw_result = PQexec(connection_, tmp.c_str());
 
-  if (PQresultStatus(result) != PGRES_TUPLES_OK &&
-      PQresultStatus(result) != PGRES_COMMAND_OK) {
-    PQclear(result);
+  if (PQresultStatus(raw_result) != PGRES_TUPLES_OK &&
+      PQresultStatus(raw_result) != PGRES_COMMAND_OK) {
+    PQclear(raw_result);
     string message = "Query: " + query + " failed: " +
                        string(PQerrorMessage(connection_));
-    set_last_error(message);
-    throw Error(message);
-    return NULL;
+    return Error(message);
   }
 
-  return new Result(result);
+  *result = new Result(raw_result);
+  return Success();
 }
 
 
-Backend::Cursor *PostgreSQL::CreateCursor(const string &query) {
-  return new Cursor(this, query + ";");
+Error PostgreSQL::Execute(const string &query) {
+  Backend::Result *result;
+  Error error = Execute(query, &result);
+  if (error.occurred()) {
+    return error;
+  }
+
+  // don't want the result, so free it
+  delete result;
+  return Success();
+}
+
+
+
+Error PostgreSQL::CreateCursor(const string &query, Backend::Cursor **cursor) {
+  *cursor = new Cursor(this);
+  Error error = (*cursor)->Init(query + ";");
+  if (error.occurred()) {
+    delete *cursor;
+    *cursor = NULL;
+    return error;
+  }
+  return Success();
 }
 
 }  // namespace cormo

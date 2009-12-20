@@ -35,7 +35,7 @@ class StringList;
 
 class Database {
  public:
-  Database(const std::string &type, const std::string &conn_info)
+  Database(Backend::Types type, const std::string &conn_info)
       : debug_(false),
         backend_(NULL),
         backend_type_(type),
@@ -43,47 +43,42 @@ class Database {
 
   ~Database() { Reset(); }
 
-  Records Query(const std::string &query);
+  Error Query(const std::string &query, Records *records);
+  Error Query(const std::string &query);
 
   template <class T>
-  Cursor<T> cursor(const std::string &query) {
+  Error CreateCursor(const std::string &query, Cursor<T> **cursor) {
     if (debug_) {
       fprintf(stderr, "%s\n", query.c_str());
     }
-    return Cursor<T>(this, backend_->CreateCursor(query));
-  }
-
-  void Connect();
-  void Reset();
-  void Insert(const std::string &table,
-              const StringList &fields,
-              const Record &values);
-  void Delete(const std::string &table, const Expression &e);
-  void Begin();
-  void Commit();
-  void Rollback();
-  bool in_transaction() const;
-
-  bool got_error() const { return last_error_ != ""; }
-  std::string last_error() {
-    std::string tmp = last_error_;
-    if (debug_) {
-      fprintf(stderr, "Error: %s\n", tmp.c_str());
+    Backend::Cursor *tmp_cursor;
+    Error error = backend_->CreateCursor(query, &tmp_cursor);
+    if (error.occurred()) {
+      return error;
     }
-    last_error_ = "";
-    return tmp;
+    *cursor = new Cursor<T>(this, tmp_cursor);
+    return Success();
   }
+
+  Error Connect();
+  void Reset();
+  Error Insert(const std::string &table,
+               const StringList &fields,
+               const Record &values);
+  Error Delete(const std::string &table, const Expression &e);
+  Error Begin();
+  Error Commit();
+  Error Rollback();
+  bool in_transaction() const;
 
   void set_debug(bool debug) { debug_ = debug; }
 
  private:
-  void set_last_error(const std::string &error) { last_error_ = error; }
 
   bool debug_;
   Backend *backend_;
-  std::string backend_type_;
+  Backend::Types backend_type_;
   std::string conn_info_;
-  std::string last_error_;
 
   DISALLOW_COPY_AND_ASSIGN(Database);
 };

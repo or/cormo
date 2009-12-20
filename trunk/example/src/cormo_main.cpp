@@ -32,22 +32,23 @@ using cormo::Select;
 using cormo::DataSource;
 
 int main(int argc, char *argv[]) {
-  cormo::Database db("postgresql",
+  cormo::Database db(cormo::Backend::kPostgresql,
                      "host=localhost;"
                        "user=cormo_user;"
                        "password=cormo_password;"
                        "database=cormo_test");
   db.set_debug(true);
 
-  db.Connect();
-  if (db.got_error()) {
-    fprintf(stderr, "Error: %s\n", db.last_error().c_str());
+  cormo::Error error = db.Connect();
+  if (error.occurred()) {
+    fprintf(stderr, "Error: %s\n", error.message().c_str());
     return 1;
   }
 
   DataSource<Test1> test = Select<Test1>(&db).
                                 Filter(Test1::Some_int < 0).OrderBy(Test1::Id);
-  vector<Test1> objs = test.all();
+  vector<Test1> objs;
+  test.GetAll(&objs);
   for (size_t i = 0; i < objs.size(); ++i) {
     printf("name: ");
     if (objs[i].name().is_null()) {
@@ -89,18 +90,39 @@ int main(int argc, char *argv[]) {
   Test1 new_obj(&db);
   new_obj.set_name("Cool.");
   new_obj.set_some_int(-1);
+  new_obj.set_some_int(2 * -new_obj.some_int());
+  new_obj.some_int()++;
+  ++new_obj.some_int();
+  error = new_obj.Save();
+  new_obj.some_int() -= 2 * new_obj.id();
   new_obj.set_xyz(objs[0].xyz());
-  new_obj.Save();
+  error = new_obj.Save();
+  if (error.occurred()) {
+    fprintf(stderr, "Error: %s\n", error.message().c_str());
+    return 1;
+  }
   printf("saved object's id: %d\n", new_obj.id().get());
-  objs[0].set_name(objs[0].name().get() + "_");
-  objs[0].Save();
+  objs[0].set_name(objs[0].name() + "_");
+  error = objs[0].Save();
+  if (error.occurred()) {
+    fprintf(stderr, "Error: %s\n", error.message().c_str());
+    return 1;
+  }
 
   if (objs.size() > 1) {
-    objs[1].Delete();
+    error = objs[1].Delete();
+    if (error.occurred()) {
+      fprintf(stderr, "Error: %s\n", error.message().c_str());
+      return 1;
+    }
     Test2 new_obj2(&db);
     new_obj2.set_name("FIRLEFANZ!");
     objs[1].set_test2(new_obj2);
-    objs[1].Save();
+    error = objs[1].Save();
+    if (error.occurred()) {
+      fprintf(stderr, "Error: %s\n", error.message().c_str());
+      return 1;
+    }
   }
 
   return 0;
